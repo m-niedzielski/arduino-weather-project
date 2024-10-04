@@ -1,73 +1,64 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Arduino Data Logger</title>
-    <script>
-        async function connectToArduino() {
-            if ('serial' in navigator) {
-                try {
-                    const port = await navigator.serial.requestPort();
-                    await port.open({ baudRate: 9600 });
-                    alert("Connected to Arduino!");
+<script>
+async function connectToArduino() {
+    if ('serial' in navigator) {
+        try {
+            const port = await navigator.serial.requestPort();
+            await port.open({ baudRate: 9600 });
+            alert("Connected to Arduino!");
 
-                    const textDecoder = new TextDecoderStream();
-                    port.readable.pipeTo(textDecoder.writable);
-                    const reader = textDecoder.readable.getReader();
+            const textDecoder = new TextDecoderStream();
+            port.readable.pipeTo(textDecoder.writable);
+            const reader = textDecoder.readable.getReader();
 
-                    let receivedData = ''; // Initialize an empty string to accumulate data
+            let receivedData = '';
 
-                    while (true) {
-                        const { value, done } = await reader.read();
-                        if (done) {
-                            console.log('Stream closed');
-                            break;
-                        }
+            while (true) {
+                const { value, done } = await reader.read();
+                if (done) {
+                    console.log('Stream closed');
+                    break;
+                }
 
-                        if (value) {
-                            receivedData += value; // Accumulate the data
-                            console.log("Accumulated serial data:", receivedData);
+                if (value) {
+                    receivedData += value;
+                    console.log("Accumulated serial data:", receivedData);
 
-                            // Check for newline, indicating a full data line has been received
-                            if (receivedData.includes("\n")) {
-                                const serialData = receivedData.trim(); // Trim the whitespace
-                                console.log("Complete serial data ready to send:", serialData);
+                    // Check for newline, indicating a complete data line
+                    if (receivedData.includes("\n")) {
+                        const serialData = receivedData.trim();  // Trim any leading/trailing spaces
+                        console.log("Complete serial data:", serialData);
 
-                                if (serialData && serialData.includes(",")) {
-                                    // Send the data to the Google Apps Script Web App
-                                    await fetch('https://script.google.com/macros/s/AKfycbzRSB4ANNVjYk33cymhu9Fp8AwQm5j6gTPTFAVBObYLc5G-62Z8kDe2EEi-OA2MdFeG/exec', {
-                                        method: 'POST',
-                                        body: serialData, // Send serial data in the body
-                                        headers: {
-                                            'Content-Type': 'text/plain'
-                                        }
-                                    })
-                                    .then(response => response.text())
-                                    .then(result => {
-                                        console.log("Data sent successfully:", result);
-                                    })
-                                    .catch(error => {
-                                        console.error("Error sending data:", error);
-                                    });
+                        // Reset the buffer before sending the data
+                        receivedData = '';
 
-                                    // Clear the received data after processing it
-                                    receivedData = ''; 
+                        // Check if the serialData is valid and contains the expected format
+                        if (serialData && serialData.match(/^\d+\.\d{2},\d+\.\d{2},\d+\.\d{2}$/)) {
+                            // Send the data to Google Apps Script
+                            await fetch('https://script.google.com/macros/s/AKfycbzRSB4ANNVjYk33cymhu9Fp8AwQm5j6gTPTFAVBObYLc5G-62Z8kDe2EEi-OA2MdFeG/exec', {
+                                method: 'POST',
+                                body: serialData, 
+                                headers: {
+                                    'Content-Type': 'text/plain'
                                 }
-                            }
+                            })
+                            .then(response => response.text())
+                            .then(result => {
+                                console.log("Data sent successfully:", result);
+                            })
+                            .catch(error => {
+                                console.error("Error sending data:", error);
+                            });
+                        } else {
+                            console.error("Invalid data format:", serialData);
                         }
                     }
-                } catch (err) {
-                    alert("Connection failed: " + err.message);
                 }
-            } else {
-                alert("Web Serial API is not supported in this browser.");
             }
+        } catch (err) {
+            alert("Connection failed: " + err.message);
         }
-    </script>
-</head>
-<body>
-    <h1>Arduino Data Logger</h1>
-    <button onclick="connectToArduino()">Connect to Arduino</button>
-</body>
-</html>
+    } else {
+        alert("Web Serial API is not supported in this browser.");
+    }
+}
+</script>
