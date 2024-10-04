@@ -29,13 +29,14 @@
                             receivedData += value; // Accumulate the data
                             console.log("Accumulated serial data:", receivedData);
 
+                            // Check for newline, indicating a full data line has been received
                             if (receivedData.includes("\n")) {
-                                const serialData = receivedData.trim();
+                                const serialData = receivedData.trim(); // Trim the whitespace
                                 console.log("Complete serial data ready to send:", serialData);
 
                                 if (serialData && serialData.includes(",")) {
-                                    // Send data to the Google Apps Script web app
-                                    fetch('https://script.google.com/macros/s/YOUR_DEPLOYED_SCRIPT_URL/exec', {
+                                    // Send the data to the Google Apps Script Web App
+                                    await fetch('https://script.google.com/macros/s/YOUR_DEPLOYED_SCRIPT_URL/exec', {
                                         method: 'POST',
                                         body: serialData, // Send serial data in the body
                                         headers: {
@@ -50,7 +51,8 @@
                                         console.error("Error sending data:", error);
                                     });
 
-                                    receivedData = ''; // Clear accumulated data after sending
+                                    // Clear the received data after processing it
+                                    receivedData = ''; 
                                 }
                             }
                         }
