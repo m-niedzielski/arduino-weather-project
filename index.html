@@ -1,64 +1,83 @@
-<script>
-async function connectToArduino() {
-    if ('serial' in navigator) {
-        try {
-            const port = await navigator.serial.requestPort();
-            await port.open({ baudRate: 9600 });
-            alert("Connected to Arduino!");
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arduino Data Logger</title>
+    <script>
+        async function connectToArduino() {
+            // Check if the browser supports the Web Serial API
+            if ('serial' in navigator) {
+                try {
+                    // Request a port and open a connection
+                    const port = await navigator.serial.requestPort();
+                    await port.open({ baudRate: 9600 });
+                    alert("Connected to Arduino!");
 
-            const textDecoder = new TextDecoderStream();
-            port.readable.pipeTo(textDecoder.writable);
-            const reader = textDecoder.readable.getReader();
+                    // Create a text decoder stream
+                    const textDecoder = new TextDecoderStream();
+                    port.readable.pipeTo(textDecoder.writable);
+                    const reader = textDecoder.readable.getReader();
 
-            let receivedData = '';
+                    let receivedData = '';  // Buffer for serial data
 
-            while (true) {
-                const { value, done } = await reader.read();
-                if (done) {
-                    console.log('Stream closed');
-                    break;
-                }
+                    // Read data continuously from the serial port
+                    while (true) {
+                        const { value, done } = await reader.read();
+                        if (done) {
+                            console.log('Stream closed');
+                            break;
+                        }
 
-                if (value) {
-                    receivedData += value;
-                    console.log("Accumulated serial data:", receivedData);
+                        if (value) {
+                            receivedData += value;  // Append the incoming data
+                            console.log("Accumulated serial data:", receivedData);
 
-                    // Check for newline, indicating a complete data line
-                    if (receivedData.includes("\n")) {
-                        const serialData = receivedData.trim();  // Trim any leading/trailing spaces
-                        console.log("Complete serial data:", serialData);
+                            // Check for newline, indicating a complete line of data
+                            if (receivedData.includes("\n")) {
+                                const serialData = receivedData.trim();  // Trim whitespace from the data
+                                console.log("Complete serial data:", serialData);
 
-                        // Reset the buffer before sending the data
-                        receivedData = '';
+                                // Reset the buffer for the next reading
+                                receivedData = '';
 
-                        // Check if the serialData is valid and contains the expected format
-                        if (serialData && serialData.match(/^\d+\.\d{2},\d+\.\d{2},\d+\.\d{2}$/)) {
-                            // Send the data to Google Apps Script
-                            await fetch('https://script.google.com/macros/s/AKfycbzRSB4ANNVjYk33cymhu9Fp8AwQm5j6gTPTFAVBObYLc5G-62Z8kDe2EEi-OA2MdFeG/exec', {
-                                method: 'POST',
-                                body: serialData, 
-                                headers: {
-                                    'Content-Type': 'text/plain'
+                                // Validate data: match pattern (elapsedTime, temperature, humidity, pressure)
+                                const dataPattern = /^\d+,\d+\.\d{2},\d+\.\d{2},\d+\.\d{2}$/;
+                                if (serialData && dataPattern.test(serialData)) {
+                                    console.log("Valid data found:", serialData);  // Log valid data
+
+                                    // Send the data to Google Apps Script using a POST request
+                                    await fetch('https://script.google.com/macros/s/AKfycbxHtQ4dW9NO7YHcqzqn1_dqqhR-m8lrhMTTClWz9PX4lvRVv_nHZ2dnGeDFbeb-tXtE/exec', {
+                                        method: 'POST',
+                                        body: serialData,
+                                        headers: {
+                                            'Content-Type': 'text/plain'
+                                        }
+                                    })
+                                    .then(response => response.text())
+                                    .then(result => {
+                                        console.log("Data sent successfully:", result);
+                                    })
+                                    .catch(error => {
+                                        console.error("Error sending data:", error);
+                                    });
+                                } else {
+                                    console.log("Invalid data format:", serialData);  // Log invalid data
                                 }
-                            })
-                            .then(response => response.text())
-                            .then(result => {
-                                console.log("Data sent successfully:", result);
-                            })
-                            .catch(error => {
-                                console.error("Error sending data:", error);
-                            });
-                        } else {
-                            console.error("Invalid data format:", serialData);
+                            }
                         }
                     }
+                } catch (err) {
+                    alert("Connection failed: " + err.message);  // Handle connection errors
                 }
+            } else {
+                alert("Web Serial API is not supported in this browser.");  // Web Serial API not supported
             }
-        } catch (err) {
-            alert("Connection failed: " + err.message);
         }
-    } else {
-        alert("Web Serial API is not supported in this browser.");
-    }
-}
-</script>
+    </script>
+</head>
+<body>
+    <h1>Arduino Data Logger</h1>
+    <button onclick="connectToArduino()">Connect to Arduino</button>
+</body>
+</html>
